@@ -8,22 +8,25 @@ process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 
 from Configuration.AlCa.GlobalTag import GlobalTag
 #process.GlobalTag = GlobalTag(process.GlobalTag, '124X_dataRun3_Prompt_v4') #2022 C D E F 
-process.GlobalTag = GlobalTag(process.GlobalTag, '124X_dataRun3_Prompt_v10') #2022 G
-#process.GlobalTag = GlobalTag(process.GlobalTag, '94X_dataRun2_ReReco_EOY17_v1', '')
+#process.GlobalTag = GlobalTag(process.GlobalTag, '124X_dataRun3_Prompt_v10') #2022 G
+process.GlobalTag = GlobalTag(process.GlobalTag, '130X_dataRun3_HLT_v2')      #2023 B
+##process.GlobalTag = GlobalTag(process.GlobalTag, '94X_dataRun2_ReReco_EOY17_v1', '')
 
-process.MessageLogger.cerr.FwkReport.reportEvery = 100
+process.MessageLogger.cerr.FwkReport.reportEvery = 200
 process.options = cms.untracked.PSet( wantSummary = cms.untracked.bool(True) )
 process.options.allowUnscheduled = cms.untracked.bool(True)
 #process.load("FWCore.MessageLogger.MessageLogger_cfi")
-process.maxEvents = cms.untracked.PSet(input = cms.untracked.int32(100))
-#process.maxEvents = cms.untracked.PSet(input = cms.untracked.int32(-1))
+#process.maxEvents = cms.untracked.PSet(input = cms.untracked.int32(1000))
+process.maxEvents = cms.untracked.PSet(input = cms.untracked.int32(-1))
 process.source = cms.Source("PoolSource",
     fileNames = cms.untracked.vstring(
 
 #'file:/asanchez/data/store/data/Run2016G/Charmonium/MINIAOD/23Sep2016-v1/A4B4AC67-B996-E611-9ECD-008CFAFBE8CE.root',
 
 #MiniAOD
-'/store/data/Run2022G/ParkingDoubleMuonLowMass7/MINIAOD/PromptReco-v1/000/362/433/00000/57d1fa15-4719-4165-a5c2-ae937f37db14.root',
+'/store/data/Run2023B/ParkingDoubleMuonLowMass0/MINIAOD/PromptReco-v1/000/366/729/00000/27addd1b-2dfd-422e-9ee6-32540a1680c7.root', #run 366729 398 Bunches
+#'/store/data/Run2023B/ParkingDoubleElectronLowMass/MINIAOD/PromptReco-v1/000/366/729/00000/00079e71-2162-4645-932b-60cecdca6c8e.root' #run 366729 398 Bunches DoubleEle
+#'/store/data/Run2022G/ParkingDoubleMuonLowMass7/MINIAOD/PromptReco-v1/000/362/433/00000/57d1fa15-4719-4165-a5c2-ae937f37db14.root',
 #'/store/data/Run2018C/Charmonium/MINIAOD/PromptReco-v2/000/319/756/00000/EEF6CEC1-698B-E811-8081-02163E00AF5F.root',
 #'/store/data/Run2022C/ParkingDoubleMuonLowMass0/MINIAOD/PromptReco-v1/000/356/076/00000/286c5c07-05d2-4cec-acc0-05514991700a.root',
 #'/store/data/Run2022C/ParkingDoubleMuonLowMass0/MINIAOD/PromptReco-v1/000/355/872/00000/18146588-e660-4b01-80b6-7611087b65a7.root',
@@ -48,7 +51,8 @@ process.load("myAnalyzers.bph-hlt-tools.PsikaonRootupler_cfi")
 
 process.TFileService = cms.Service("TFileService",
 
-       fileName = cms.string('Rootuple_MuMu_2022G-MiniAOD.root'),
+       #fileName = cms.string('Rootuple_MuMu_2022G-MiniAOD-DoubleEle.root'),
+       fileName = cms.string('Rootuple_MuMu_2023B-MiniAOD.root'),
   
 )
 

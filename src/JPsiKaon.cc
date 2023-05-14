@@ -18,7 +18,7 @@
 #include "myAnalyzers/bph-hlt-tools/src/JPsiKaon.h"
 
 #include "FWCore/Framework/interface/Frameworkfwd.h"
-#include "FWCore/Framework/interface/EDAnalyzer.h"
+#include "FWCore/Framework/interface/one/EDAnalyzer.h"
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
@@ -62,7 +62,7 @@
 // constants, enums and typedefs
 //
 
-  typedef math::Error<3>::type CovarianceMatrix;
+typedef math::Error<3>::type CovarianceMatrix;
 
 //
 // static data member definitions
@@ -91,7 +91,9 @@ JPsiKaon::JPsiKaon(const edm::ParameterSet& iConfig)
   OnlyBest_(iConfig.getParameter<bool>("OnlyBest")),
   isMC_(iConfig.getParameter<bool>("isMC")),
   OnlyGen_(iConfig.getParameter<bool>("OnlyGen")),
-  
+  HLTPaths_(iConfig.getParameter<std::vector<std::string>>("HLTPaths")),
+  L1Seeds_(iConfig.getParameter<std::vector<std::string>>("L1Seeds")),
+  debug_(iConfig.getParameter<bool>("debug")),
   tree_(0), 
 
   mumC2(0), mumNHits(0), mumNPHits(0),
@@ -105,6 +107,8 @@ JPsiKaon::JPsiKaon(const edm::ParameterSet& iConfig)
   L14p5ups(0),
 
   L1mu_pt(0), L1mu_eta(0), L1mu_phi(0), L1mu_etaAtVtx(0), L1mu_phiAtVtx(0), L1mu_charge(0), L1mu_quality(0),
+  hltsVector(HLTPaths_.size()),
+  l1sVector(L1Seeds_.size()),
 
   HLTLowMassDisplaced(0), HLTLowMassInclusive(0),
   HLTMuMuTrkDisplaced(0), HLTBsMuMu(0), HLTUpsilon(0),
@@ -180,10 +184,17 @@ void JPsiKaon::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   // Get event content information
   //*********************************  
  
+
+  /*if (debug_){
+    for(auto &&hlt_path: HLTPaths_)
+      std::cout << hlt_path << std::endl;
+  }*/
+  
+
+
   // Kinematic fit
   //edm::ESHandle<TransientTrackBuilder> theB; 
   //iSetup.get<TransientTrackRecord>().get("TransientTrackBuilder",theB); 
-
   auto const &theB = iSetup.getData(builderToken_);
 
   //edm::Handle< View<pat::PackedCandidate> > thePATTrackHandle;
@@ -201,7 +212,6 @@ void JPsiKaon::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   //*********************************
   //Now we get the primary vertex 
   //*********************************
-
   reco::Vertex bestVtx;
   edm::Handle<reco::VertexCollection> primaryVertices_handle;
   iEvent.getByToken(primaryVertices_Label, primaryVertices_handle);
@@ -219,6 +229,8 @@ void JPsiKaon::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   priVtxXZE = bestVtx.covariance(0, 2);
   priVtxYZE = bestVtx.covariance(1, 2);
 
+
+
   priVtxCL = ChiSquaredProbability((double)(bestVtx.chi2()),(double)(bestVtx.ndof())); 
   nVtx = primaryVertices_handle->size(); 
  
@@ -226,8 +238,12 @@ void JPsiKaon::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   run = iEvent.id().run();
   event = iEvent.id().event();
 
-  //Unpack trigger info
 
+  // Here we are going to save the information of the HLT_paths and L1seeds
+  hltsVector.resize( HLTPaths_.size(), 0);
+  l1sVector.resize( L1Seeds_.size(), 0);
+
+  //Unpack trigger info
   const edm::TriggerNames &names = iEvent.triggerNames(*triggerBits);
   const pat::TriggerObjectStandAloneCollection unPackedCollection;
 
@@ -239,8 +255,21 @@ void JPsiKaon::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       if (iName.find("HLT_DoubleMu4_MuMuTrk_Displaced_v") != std::string::npos) HLTMuMuTrkDisplaced = 1;
       if (iName.find("HLT_DoubleMu4_3_Bs_v") != std::string::npos) HLTBsMuMu = 1;
       if (iName.find("HLT_Dimuon10_y1p4_v") != std::string::npos) HLTUpsilon = 1;
+    
+      for(std::size_t i = 0; i < HLTPaths_.size(); ++i) {
+        if (iName.find(HLTPaths_[i]) != std::string::npos) hltsVector[i] = 1;
+      }
+
     }
+
+
   } 
+
+  /*if (debug_){
+    for(std::size_t i = 0; i < HLTPaths_.size(); ++i)
+      std::cout<<HLTPaths_[i] << "\t--> " << hltsVector[i] << std::endl; 
+  }*/
+
 
   for (pat::TriggerObjectStandAlone trig : *triggerCollection) {
       trig.unpackPathNames(names);
@@ -261,6 +290,11 @@ void JPsiKaon::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       if( l1tName.find("L1_DoubleMu0er2p0_SQ_OS_dEta_Max1p5") != string::npos )  L10er2p0dEta1p5 = 1;
       if( l1tName.find("L1_DoubleMu3er2p0_SQ_OS_dR_Max1p4") != string::npos )    L13er2p0dR = 1;
       if( l1tName.find("L1_DoubleMu4p5er2p0_SQ_OS_Mass_7to18") != string::npos ) L14p5ups = 1;
+
+      for(std::size_t i = 0; i < L1Seeds_.size(); ++i) {
+        if (l1tName.find(L1Seeds_[i]) != std::string::npos) l1sVector[i] = 1;
+      }
+
     }
   }
 
@@ -311,402 +345,407 @@ void JPsiKaon::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         
     for(View<pat::Muon>::const_iterator iMuon2 = iMuon1+1; iMuon2 != thePATMuonHandle->end(); ++iMuon2)	{
 
-	  if(iMuon1==iMuon2) continue;
+      if(iMuon1==iMuon2) continue;
+      if((iMuon2->track()).isNull()) continue;
+      if(iMuon2->track()->pt()<2.0) continue;
+      
+      //opposite charge 
+      if( (iMuon1->charge())*(iMuon2->charge()) == 1) continue;
 
-          if((iMuon2->track()).isNull()) continue;
-          if(iMuon2->track()->pt()<2.0) continue;
-	  
-	  //opposite charge 
-	  if( (iMuon1->charge())*(iMuon2->charge()) == 1) continue;
-
-          mu2HLTmatched = false;
-          for (pat::TriggerObjectStandAlone obj : *triggerCollection) {
-            if( obj.collection().find(hltMuColl) != std::string::npos ) {
-            float etaTrig = obj.eta();
-            float phiTrig = obj.phi();
-            float etaReco = iMuon2->track()->eta();
-            float phiReco = iMuon2->track()->phi();
-            float de = etaTrig - etaReco;
-            auto dp = std::abs(phiTrig - phiReco);
-            if (dp > float(M_PI)) dp -= float(2*M_PI);
-            //std::cout << "mu2 " << sqrt(de*de + dp*dp) << std::endl;
-            if (sqrt(de*de + dp*dp) < 0.01) mu2HLTmatched = true;
-            }
-          }
-
-	  TrackRef glbTrackP;	  
-	  TrackRef glbTrackM;	  
-	  
-	  if(iMuon1->charge() == 1){ glbTrackP = iMuon1->track();}
-	  if(iMuon1->charge() == -1){ glbTrackM = iMuon1->track();}
-	  
-	  if(iMuon2->charge() == 1) { glbTrackP = iMuon2->track();}
-	  if(iMuon2->charge() == -1){ glbTrackM = iMuon2->track();}
-	  
-	  if( glbTrackP.isNull() || glbTrackM.isNull() ) 
-	    {
-	      //std::cout << "continue due to no track ref" << endl;
-	      continue;
-	    }
-
-	  if(iMuon1->track()->pt()<2.0) continue;
-	  if(iMuon2->track()->pt()<2.0) continue;
-
-	  if(!(glbTrackM->quality(reco::TrackBase::highPurity))) continue;
-	  if(!(glbTrackP->quality(reco::TrackBase::highPurity))) continue;	 
-	  
-	  reco::TransientTrack muon1TT(theB.build(glbTrackP));
-	  reco::TransientTrack muon2TT(theB.build(glbTrackM));
-
-	 // *****  Trajectory states to calculate DCA for the 2 muons *********************
-	  FreeTrajectoryState mu1State = muon1TT.impactPointTSCP().theState();
-	  FreeTrajectoryState mu2State = muon2TT.impactPointTSCP().theState();
-
-	  if( !muon1TT.impactPointTSCP().isValid() || !muon2TT.impactPointTSCP().isValid() ) continue;
-
-	  // Measure distance between tracks at their closest approach
-	  ClosestApproachInRPhi cApp;
-	  cApp.calculate(mu1State, mu2State);
-	  if( !cApp.status() ) continue;
-	  float dca = fabs( cApp.distance() );	  
-	  //if (dca < 0. || dca > 0.5) continue;
-	  //cout<<" closest approach  "<<dca<<endl;
-
-	  // *****  end DCA for the 2 muons *********************
-
-	  //Let's check the vertex and mass
-
-	  //The mass of a muon and the insignificant mass sigma 
-	  //to avoid singularities in the covariance matrix.
-	  ParticleMass muon_mass = 0.10565837; //pdg mass
-	  ParticleMass psi_mass = 3.096916;
-	  float muon_sigma = muon_mass*1.e-6;
-	  
-	  //Creating a KinematicParticleFactory
-	  KinematicParticleFactoryFromTransientTrack pFactory;
-	  
-	  //initial chi2 and ndf before kinematic fits.
-	  float chi = 0.;
-	  float ndf = 0.;
-	  vector<RefCountedKinematicParticle> muonParticles;
-	  try {
-	    muonParticles.push_back(pFactory.particle(muon1TT,muon_mass,chi,ndf,muon_sigma));
-	    muonParticles.push_back(pFactory.particle(muon2TT,muon_mass,chi,ndf,muon_sigma));
-	  }
-	  catch(...) { 
-	    std::cout<<" Exception caught ... continuing 1 "<<std::endl; 
-	    continue;
-	  }
-	  
-	  KinematicParticleVertexFitter fitter;   
-	  
-	  RefCountedKinematicTree psiVertexFitTree;
-	  try {
-	    psiVertexFitTree = fitter.fit(muonParticles); 
-	  }
-	  catch (...) { 
-	    std::cout<<" Exception caught ... continuing 2 "<<std::endl; 
-	    continue;
-	  }
-	  
-	  if (!psiVertexFitTree->isValid()) 
-	    {
-	      //std::cout << "caught an exception in the psi vertex fit" << std::endl;
-	      continue; 
-	    }
-	  
-	  psiVertexFitTree->movePointerToTheTop();
-	  
-	  RefCountedKinematicParticle psi_vFit_noMC = psiVertexFitTree->currentParticle();
-	  RefCountedKinematicVertex psi_vFit_vertex_noMC = psiVertexFitTree->currentDecayVertex();
-	  
-	  if( psi_vFit_vertex_noMC->chiSquared() < 0 )
-	    {
-	      //std::cout << "negative chisq from psi fit" << endl;
-	      continue;
-	    }
-	  
-	  //some loose cuts go here
-	  
-	  if(psi_vFit_vertex_noMC->chiSquared()>50.) continue;
-	  if(psi_vFit_noMC->currentState().mass()<0.05) continue;
-
-	  double J_Prob_tmp   = TMath::Prob(psi_vFit_vertex_noMC->chiSquared(),(int)psi_vFit_vertex_noMC->degreesOfFreedom());
-	  if(J_Prob_tmp<0.01)
-	    {
-	      continue;
+            mu2HLTmatched = false;
+            for (pat::TriggerObjectStandAlone obj : *triggerCollection) {
+              if( obj.collection().find(hltMuColl) != std::string::npos ) {
+              float etaTrig = obj.eta();
+              float phiTrig = obj.phi();
+              float etaReco = iMuon2->track()->eta();
+              float phiReco = iMuon2->track()->phi();
+              float de = etaTrig - etaReco;
+              auto dp = std::abs(phiTrig - phiReco);
+              if (dp > float(M_PI)) dp -= float(2*M_PI);
+              //std::cout << "mu2 " << sqrt(de*de + dp*dp) << std::endl;
+              if (sqrt(de*de + dp*dp) < 0.01) mu2HLTmatched = true;
+              }
             }
 
-          psiVertexFitTree->movePointerToTheFirstChild();
-          RefCountedKinematicParticle mu1PsiCand = psiVertexFitTree->currentParticle();
+      TrackRef glbTrackP;	  
+      TrackRef glbTrackM;	  
+      
+      if(iMuon1->charge() == 1){ glbTrackP = iMuon1->track();}
+      if(iMuon1->charge() == -1){ glbTrackM = iMuon1->track();}
+      
+      if(iMuon2->charge() == 1) { glbTrackP = iMuon2->track();}
+      if(iMuon2->charge() == -1){ glbTrackM = iMuon2->track();}
+      
+      if( glbTrackP.isNull() || glbTrackM.isNull() ) 
+        {
+          if (debug_) std::cout << "continue due to no track ref" << endl;
+          continue;
+        }
+
+      if(iMuon1->track()->pt()<2.0) continue;
+      if(iMuon2->track()->pt()<2.0) continue;
+
+      if(!(glbTrackM->quality(reco::TrackBase::highPurity))) continue;
+      if(!(glbTrackP->quality(reco::TrackBase::highPurity))) continue;	 
+      
+      reco::TransientTrack muon1TT(theB.build(glbTrackP));
+      reco::TransientTrack muon2TT(theB.build(glbTrackM));
+
+    // *****  Trajectory states to calculate DCA for the 2 muons *********************
+      FreeTrajectoryState mu1State = muon1TT.impactPointTSCP().theState();
+      FreeTrajectoryState mu2State = muon2TT.impactPointTSCP().theState();
+
+      if( !muon1TT.impactPointTSCP().isValid() || !muon2TT.impactPointTSCP().isValid() ) continue;
+
+      // Measure distance between tracks at their closest approach
+      ClosestApproachInRPhi cApp;
+      cApp.calculate(mu1State, mu2State);
+      if( !cApp.status() ) continue;
+      float dca = fabs( cApp.distance() );	  
+      //if (dca < 0. || dca > 0.5) continue;
+      //cout<<" closest approach  "<<dca<<endl;
+
+      // *****  end DCA for the 2 muons *********************
+
+      //Let's check the vertex and mass
+
+      //The mass of a muon and the insignificant mass sigma 
+      //to avoid singularities in the covariance matrix.
+      ParticleMass muon_mass = 0.10565837; //pdg mass
+      ParticleMass psi_mass = 3.096916;
+      float muon_sigma = muon_mass*1.e-6;
+      
+      //Creating a KinematicParticleFactory
+      KinematicParticleFactoryFromTransientTrack pFactory;
+      
+      //initial chi2 and ndf before kinematic fits.
+      float chi = 0.;
+      float ndf = 0.;
+      vector<RefCountedKinematicParticle> muonParticles;
+      try {
+        muonParticles.push_back(pFactory.particle(muon1TT,muon_mass,chi,ndf,muon_sigma));
+        muonParticles.push_back(pFactory.particle(muon2TT,muon_mass,chi,ndf,muon_sigma));
+      }
+      catch(...) { 
+        if (debug_) std::cout<<" Exception caught ... continuing 1 "<<std::endl; 
+        continue;
+      }
+      
+      KinematicParticleVertexFitter fitter;   
+      
+      RefCountedKinematicTree psiVertexFitTree;
+      try {
+        psiVertexFitTree = fitter.fit(muonParticles); 
+      }
+      catch (...) { 
+        std::cout<<" Exception caught ... continuing 2 "<<std::endl; 
+        continue;
+      }
+      
+      if (!psiVertexFitTree->isValid()) 
+        {
+          //std::cout << "caught an exception in the psi vertex fit" << std::endl;
+          continue; 
+        }
+      
+      psiVertexFitTree->movePointerToTheTop();
+      
+      RefCountedKinematicParticle psi_vFit_noMC = psiVertexFitTree->currentParticle();
+      RefCountedKinematicVertex psi_vFit_vertex_noMC = psiVertexFitTree->currentDecayVertex();
+      
+      if( psi_vFit_vertex_noMC->chiSquared() < 0 ) continue;
+      
+      //some loose cuts go here
+      
+      if(psi_vFit_vertex_noMC->chiSquared()>50.) continue;
+      if(psi_vFit_noMC->currentState().mass()<0.05) continue;
+
+      double J_Prob_tmp   = TMath::Prob(psi_vFit_vertex_noMC->chiSquared(),(int)psi_vFit_vertex_noMC->degreesOfFreedom());
+      if(J_Prob_tmp<0.01) continue;
+
+      psiVertexFitTree->movePointerToTheFirstChild();
+      RefCountedKinematicParticle mu1PsiCand = psiVertexFitTree->currentParticle();
+                
+      psiVertexFitTree->movePointerToTheNextChild();
+      RefCountedKinematicParticle mu2PsiCand = psiVertexFitTree->currentParticle();
+
+      J_mass = psi_vFit_noMC->currentState().mass();
+      J_px = psi_vFit_noMC->currentState().globalMomentum().x();
+      J_py = psi_vFit_noMC->currentState().globalMomentum().y();
+      J_pz = psi_vFit_noMC->currentState().globalMomentum().z();
+      J_charge = psi_vFit_noMC->currentState().particleCharge();
+
+      J_pt1 = mu1PsiCand->currentState().globalMomentum().perp();
+      J_eta1 = mu1PsiCand->currentState().globalMomentum().eta();
+      J_phi1 = mu1PsiCand->currentState().globalMomentum().phi();
+      J_px1 = mu1PsiCand->currentState().globalMomentum().x();
+      J_py1 = mu1PsiCand->currentState().globalMomentum().y();
+      J_pz1 = mu1PsiCand->currentState().globalMomentum().z();
+      J_charge1 = mu1PsiCand->currentState().particleCharge();
+
+      J_pt2 = mu2PsiCand->currentState().globalMomentum().perp();
+      J_eta2 = mu2PsiCand->currentState().globalMomentum().eta();
+      J_phi2 = mu2PsiCand->currentState().globalMomentum().phi();
+      J_px2 = mu2PsiCand->currentState().globalMomentum().x();
+      J_py2 = mu2PsiCand->currentState().globalMomentum().y();
+      J_pz2 = mu2PsiCand->currentState().globalMomentum().z();
+      J_charge2 = mu2PsiCand->currentState().particleCharge();
+
+      J_chi2 = psi_vFit_vertex_noMC->chiSquared();
+      J_Prob = J_Prob_tmp;
+
+      J_DecayVtxX = (*psi_vFit_vertex_noMC).position().x();    
+      J_DecayVtxY = (*psi_vFit_vertex_noMC).position().y();
+      J_DecayVtxZ = (*psi_vFit_vertex_noMC).position().z();
+      J_DecayVtxXE = (psi_vFit_vertex_noMC->error().cxx());   
+      J_DecayVtxYE = (psi_vFit_vertex_noMC->error().cyy());   
+      J_DecayVtxZE = (psi_vFit_vertex_noMC->error().czz());
+      J_DecayVtxXYE = (psi_vFit_vertex_noMC->error().cyx());
+      J_DecayVtxXZE = (psi_vFit_vertex_noMC->error().czx());
+      J_DecayVtxYZE = (psi_vFit_vertex_noMC->error().czy());
+
+      //Now that we have a J/psi candidate, we look for K^+ candidates
+      /*	  
+      for(View<pat::PackedCandidate>::const_iterator iTrack1 = thePATTrackHandle->begin(); iTrack1 != thePATTrackHandle->end(); ++iTrack1 ) {
+        if(iTrack1->charge()==0) continue;
+        if(fabs(iTrack1->pdgId())!=211) continue;
+        if(iTrack1->pt()<1.3) continue;
+        //if(iTrack1->pt()<0.95) continue;
+        if(!(iTrack1->trackHighPurity())) continue;
+        
+        if ( IsTheSame(*iTrack1,*iMuon1) || IsTheSame(*iTrack1,*iMuon2) ) continue;
                     
-          psiVertexFitTree->movePointerToTheNextChild();
-          RefCountedKinematicParticle mu2PsiCand = psiVertexFitTree->currentParticle();
+        reco::TransientTrack kaonTT((*theB).build(iTrack1->pseudoTrack()));
 
-          J_mass = psi_vFit_noMC->currentState().mass();
-          J_px = psi_vFit_noMC->currentState().globalMomentum().x();
-          J_py = psi_vFit_noMC->currentState().globalMomentum().y();
-          J_pz = psi_vFit_noMC->currentState().globalMomentum().z();
-          J_charge = psi_vFit_noMC->currentState().particleCharge();
- 
-          J_pt1 = mu1PsiCand->currentState().globalMomentum().perp();
-          J_eta1 = mu1PsiCand->currentState().globalMomentum().eta();
-          J_phi1 = mu1PsiCand->currentState().globalMomentum().phi();
-          J_px1 = mu1PsiCand->currentState().globalMomentum().x();
-          J_py1 = mu1PsiCand->currentState().globalMomentum().y();
-          J_pz1 = mu1PsiCand->currentState().globalMomentum().z();
-          J_charge1 = mu1PsiCand->currentState().particleCharge();
+        ParticleMass kaon_mass = 0.493677;
+        float kaon_sigma = kaon_mass*1.e-6;
 
-          J_pt2 = mu2PsiCand->currentState().globalMomentum().perp();
-          J_eta2 = mu2PsiCand->currentState().globalMomentum().eta();
-          J_phi2 = mu2PsiCand->currentState().globalMomentum().phi();
-          J_px2 = mu2PsiCand->currentState().globalMomentum().x();
-          J_py2 = mu2PsiCand->currentState().globalMomentum().y();
-          J_pz2 = mu2PsiCand->currentState().globalMomentum().z();
-          J_charge2 = mu2PsiCand->currentState().particleCharge();
+        float chi = 0.;
+        float ndf = 0.;		 
 
-          J_chi2 = psi_vFit_vertex_noMC->chiSquared();
-          J_Prob = J_Prob_tmp;
+        // ***************************
+        // JpsiKaon invariant mass (before kinematic vertex fit)
+        // ***************************
+        TLorentzVector kaon14V, Jpsi4V; 
+        kaon14V.SetXYZM(iTrack1->px(),iTrack1->py(),iTrack1->pz(),kaon_mass);
+        
+        Jpsi4V.SetXYZM(psi_vFit_noMC->currentState().globalMomentum().x(),psi_vFit_noMC->currentState().globalMomentum().y(),psi_vFit_noMC->currentState().globalMomentum().z(),psi_vFit_noMC->currentState().mass());
+
+        if ( (kaon14V + Jpsi4V).M()<4.2 || (kaon14V + Jpsi4V).M()>6.8 ) continue;
+      
+        //Now we are ready to combine!
+        // JPsi mass constraint is applied in the final Bplus fit,
+
+        vector<RefCountedKinematicParticle> vFitMCParticles;
+        vFitMCParticles.push_back(pFactory.particle(muon1TT,muon_mass,chi,ndf,muon_sigma));
+        vFitMCParticles.push_back(pFactory.particle(muon2TT,muon_mass,chi,ndf,muon_sigma));
+        vFitMCParticles.push_back(pFactory.particle(kaonTT,kaon_mass ,chi,ndf,kaon_sigma));
+              
+        MultiTrackKinematicConstraint *  j_psi_c = new  TwoTrackMassKinematicConstraint(psi_mass);
+        KinematicConstrainedVertexFitter kcvFitter;
+        RefCountedKinematicTree vertexFitTree = kcvFitter.fit(vFitMCParticles, j_psi_c);
+        if (!vertexFitTree->isValid()) {
+          //std::cout << "caught an exception in the B vertex fit with MC" << std::endl;
+          continue;
+        }
+        vertexFitTree->movePointerToTheTop();
+
+      
+        RefCountedKinematicParticle bCandMC = vertexFitTree->currentParticle();
+        RefCountedKinematicVertex bDecayVertexMC = vertexFitTree->currentDecayVertex();
+        if (!bDecayVertexMC->vertexIsValid()){
+          // cout << "B MC fit vertex is not valid" << endl;
+          continue;
+        }
           
-          J_DecayVtxX = (*psi_vFit_vertex_noMC).position().x();    
-          J_DecayVtxY = (*psi_vFit_vertex_noMC).position().y();
-          J_DecayVtxZ = (*psi_vFit_vertex_noMC).position().z();
-          J_DecayVtxXE = (psi_vFit_vertex_noMC->error().cxx());   
-          J_DecayVtxYE = (psi_vFit_vertex_noMC->error().cyy());   
-          J_DecayVtxZE = (psi_vFit_vertex_noMC->error().czz());
-          J_DecayVtxXYE = (psi_vFit_vertex_noMC->error().cyx());
-          J_DecayVtxXZE = (psi_vFit_vertex_noMC->error().czx());
-          J_DecayVtxYZE = (psi_vFit_vertex_noMC->error().czy());
+        if ( (bCandMC->currentState().mass() < 5.0) || (bCandMC->currentState().mass() > 6.0) ) {
+          continue;
+        }
+          
+        if ( bDecayVertexMC->chiSquared()<0 || bDecayVertexMC->chiSquared()>50) {
+          //if ( bDecayVertexMC->chiSquared()<0 ) cout << " continue from negative chi2 = " << bDecayVertexMC->chiSquared() << endl;
+          continue;
+        }
+          
+        double B_Prob_tmp  = TMath::Prob(bDecayVertexMC->chiSquared(),(int)bDecayVertexMC->degreesOfFreedom());
+        if(B_Prob_tmp<0.01) {
+          continue;
+              }
+                  
+              // get children from final B fit
 
-	  //Now that we have a J/psi candidate, we look for K^+ candidates
-/*	  
-	  for(View<pat::PackedCandidate>::const_iterator iTrack1 = thePATTrackHandle->begin(); iTrack1 != thePATTrackHandle->end(); ++iTrack1 ) {
-	    if(iTrack1->charge()==0) continue;
-	    if(fabs(iTrack1->pdgId())!=211) continue;
-	    if(iTrack1->pt()<1.3) continue;
-	    //if(iTrack1->pt()<0.95) continue;
-	    if(!(iTrack1->trackHighPurity())) continue;
-		   
-	    if ( IsTheSame(*iTrack1,*iMuon1) || IsTheSame(*iTrack1,*iMuon2) ) continue;
-		    		 		   
-	    reco::TransientTrack kaonTT((*theB).build(iTrack1->pseudoTrack()));
+        vertexFitTree->movePointerToTheFirstChild();
+        RefCountedKinematicParticle mu1CandMC = vertexFitTree->currentParticle();
+          
+        vertexFitTree->movePointerToTheNextChild();
+        RefCountedKinematicParticle mu2CandMC = vertexFitTree->currentParticle();
+        
+        vertexFitTree->movePointerToTheNextChild();
+        RefCountedKinematicParticle kCandMC = vertexFitTree->currentParticle();		  
 
-	    ParticleMass kaon_mass = 0.493677;
-	    float kaon_sigma = kaon_mass*1.e-6;
+        KinematicParameters psiMu1KP = mu1CandMC->currentState().kinematicParameters();
+        KinematicParameters psiMu2KP = mu2CandMC->currentState().kinematicParameters();
+        KinematicParameters psiMupKP;
+        KinematicParameters psiMumKP;
+          
+              if ( mu1CandMC->currentState().particleCharge() > 0 ) psiMupKP = psiMu1KP;
+        if ( mu1CandMC->currentState().particleCharge() < 0 ) psiMumKP = psiMu1KP;
+        if ( mu2CandMC->currentState().particleCharge() > 0 ) psiMupKP = psiMu2KP;
+        if ( mu2CandMC->currentState().particleCharge() < 0 ) psiMumKP = psiMu2KP;	 
 
-	    float chi = 0.;
-	    float ndf = 0.;		 
-
-	    // ***************************
-	    // JpsiKaon invariant mass (before kinematic vertex fit)
-	    // ***************************
-	    TLorentzVector kaon14V, Jpsi4V; 
-	    kaon14V.SetXYZM(iTrack1->px(),iTrack1->py(),iTrack1->pz(),kaon_mass);
-		   
-	    Jpsi4V.SetXYZM(psi_vFit_noMC->currentState().globalMomentum().x(),psi_vFit_noMC->currentState().globalMomentum().y(),psi_vFit_noMC->currentState().globalMomentum().z(),psi_vFit_noMC->currentState().mass());
-
-	    if ( (kaon14V + Jpsi4V).M()<4.2 || (kaon14V + Jpsi4V).M()>6.8 ) continue;
-	   
-	    //Now we are ready to combine!
-	    // JPsi mass constraint is applied in the final Bplus fit,
-
-	    vector<RefCountedKinematicParticle> vFitMCParticles;
-	    vFitMCParticles.push_back(pFactory.particle(muon1TT,muon_mass,chi,ndf,muon_sigma));
-	    vFitMCParticles.push_back(pFactory.particle(muon2TT,muon_mass,chi,ndf,muon_sigma));
-	    vFitMCParticles.push_back(pFactory.particle(kaonTT,kaon_mass ,chi,ndf,kaon_sigma));
-		   		  
-	    MultiTrackKinematicConstraint *  j_psi_c = new  TwoTrackMassKinematicConstraint(psi_mass);
-	    KinematicConstrainedVertexFitter kcvFitter;
-	    RefCountedKinematicTree vertexFitTree = kcvFitter.fit(vFitMCParticles, j_psi_c);
-	    if (!vertexFitTree->isValid()) {
-	      //std::cout << "caught an exception in the B vertex fit with MC" << std::endl;
-	      continue;
-	    }
-	    vertexFitTree->movePointerToTheTop();
-
-		 
-	    RefCountedKinematicParticle bCandMC = vertexFitTree->currentParticle();
-	    RefCountedKinematicVertex bDecayVertexMC = vertexFitTree->currentDecayVertex();
-	    if (!bDecayVertexMC->vertexIsValid()){
-	      // cout << "B MC fit vertex is not valid" << endl;
-	      continue;
-	    }
-		    
-	    if ( (bCandMC->currentState().mass() < 5.0) || (bCandMC->currentState().mass() > 6.0) ) {
-	      continue;
-	    }
-		    
-	    if ( bDecayVertexMC->chiSquared()<0 || bDecayVertexMC->chiSquared()>50) {
-	      //if ( bDecayVertexMC->chiSquared()<0 ) cout << " continue from negative chi2 = " << bDecayVertexMC->chiSquared() << endl;
-	      continue;
-	    }
-		    
-	    double B_Prob_tmp  = TMath::Prob(bDecayVertexMC->chiSquared(),(int)bDecayVertexMC->degreesOfFreedom());
-	    if(B_Prob_tmp<0.01) {
-	      continue;
-            }
-		    		    
-            // get children from final B fit
-
-	    vertexFitTree->movePointerToTheFirstChild();
-	    RefCountedKinematicParticle mu1CandMC = vertexFitTree->currentParticle();
-		    
-	    vertexFitTree->movePointerToTheNextChild();
-	    RefCountedKinematicParticle mu2CandMC = vertexFitTree->currentParticle();
-		   
- 	    vertexFitTree->movePointerToTheNextChild();
-	    RefCountedKinematicParticle kCandMC = vertexFitTree->currentParticle();		  
-
-	    KinematicParameters psiMu1KP = mu1CandMC->currentState().kinematicParameters();
-	    KinematicParameters psiMu2KP = mu2CandMC->currentState().kinematicParameters();
-	    KinematicParameters psiMupKP;
-	    KinematicParameters psiMumKP;
-	       
-            if ( mu1CandMC->currentState().particleCharge() > 0 ) psiMupKP = psiMu1KP;
-	    if ( mu1CandMC->currentState().particleCharge() < 0 ) psiMumKP = psiMu1KP;
-	    if ( mu2CandMC->currentState().particleCharge() > 0 ) psiMupKP = psiMu2KP;
-	    if ( mu2CandMC->currentState().particleCharge() < 0 ) psiMumKP = psiMu2KP;	 
-
- 	    GlobalVector Jp1vec(mu1CandMC->currentState().globalMomentum().x(),
-	 		        mu1CandMC->currentState().globalMomentum().y(),
- 				mu1CandMC->currentState().globalMomentum().z());
+        GlobalVector Jp1vec(mu1CandMC->currentState().globalMomentum().x(),
+                mu1CandMC->currentState().globalMomentum().y(),
+          mu1CandMC->currentState().globalMomentum().z());
 
 
-            GlobalVector Jp2vec(mu2CandMC->currentState().globalMomentum().x(),
-	 		        mu2CandMC->currentState().globalMomentum().y(),
- 				mu2CandMC->currentState().globalMomentum().z());
-		   
-            KinematicParameters VCandKP = kCandMC->currentState().kinematicParameters();
-		   	       
-	    // ************ fill candidate variables now
-		   
-	    // Only save the first time
-	    if(nB==0){	    
-	      nMu  = nMu_tmp;
-	      // cout<< "*Number of Muons : " << nMu_tmp << endl;
-	    } // end nB==0
+              GlobalVector Jp2vec(mu2CandMC->currentState().globalMomentum().x(),
+                mu2CandMC->currentState().globalMomentum().y(),
+          mu2CandMC->currentState().globalMomentum().z());
+        
+              KinematicParameters VCandKP = kCandMC->currentState().kinematicParameters();
+                
+        // ************ fill candidate variables now
+        
+        // Only save the first time
+        if(nB==0){	    
+          nMu  = nMu_tmp;
+          // cout<< "*Number of Muons : " << nMu_tmp << endl;
+        } // end nB==0
 
-	    B_mass->push_back(bCandMC->currentState().mass());
-	    B_px->push_back(bCandMC->currentState().globalMomentum().x());
-	    B_py->push_back(bCandMC->currentState().globalMomentum().y());
-	    B_pz->push_back(bCandMC->currentState().globalMomentum().z());
-	    B_charge->push_back(bCandMC->currentState().particleCharge());
+        B_mass->push_back(bCandMC->currentState().mass());
+        B_px->push_back(bCandMC->currentState().globalMomentum().x());
+        B_py->push_back(bCandMC->currentState().globalMomentum().y());
+        B_pz->push_back(bCandMC->currentState().globalMomentum().z());
+        B_charge->push_back(bCandMC->currentState().particleCharge());
 
-	    // You can get the momentum components (for muons and kaon) from the final B childrens or of the original Tracks. Here, a example for the kaon:
-	    B_k_px->push_back(VCandKP.momentum().x() );
-	    B_k_py->push_back(VCandKP.momentum().y() );
-	    B_k_pz->push_back(VCandKP.momentum().z() );
-	    B_k_px_track->push_back(iTrack1->px() );
-	    B_k_py_track->push_back(iTrack1->py() );
-	    B_k_pz_track->push_back(iTrack1->pz() );
-	    B_k_charge1->push_back(kCandMC->currentState().particleCharge());
-		  
-	    B_J_mass->push_back( psi_vFit_noMC->currentState().mass() );
-	    B_J_px->push_back( psi_vFit_noMC->currentState().globalMomentum().x() );
-	    B_J_py->push_back( psi_vFit_noMC->currentState().globalMomentum().y() );
-	    B_J_pz->push_back( psi_vFit_noMC->currentState().globalMomentum().z() );
-  	    B_J_pt1->push_back(Jp1vec.perp());
-            B_J_px1->push_back(psiMu1KP.momentum().x());
-            B_J_py1->push_back(psiMu1KP.momentum().y());
-	    B_J_pz1->push_back(psiMu1KP.momentum().z());
-	    B_J_charge1->push_back(mu1CandMC->currentState().particleCharge());
+        // You can get the momentum components (for muons and kaon) from the final B childrens or of the original Tracks. Here, a example for the kaon:
+        B_k_px->push_back(VCandKP.momentum().x() );
+        B_k_py->push_back(VCandKP.momentum().y() );
+        B_k_pz->push_back(VCandKP.momentum().z() );
+        B_k_px_track->push_back(iTrack1->px() );
+        B_k_py_track->push_back(iTrack1->py() );
+        B_k_pz_track->push_back(iTrack1->pz() );
+        B_k_charge1->push_back(kCandMC->currentState().particleCharge());
+        
+        B_J_mass->push_back( psi_vFit_noMC->currentState().mass() );
+        B_J_px->push_back( psi_vFit_noMC->currentState().globalMomentum().x() );
+        B_J_py->push_back( psi_vFit_noMC->currentState().globalMomentum().y() );
+        B_J_pz->push_back( psi_vFit_noMC->currentState().globalMomentum().z() );
+          B_J_pt1->push_back(Jp1vec.perp());
+              B_J_px1->push_back(psiMu1KP.momentum().x());
+              B_J_py1->push_back(psiMu1KP.momentum().y());
+        B_J_pz1->push_back(psiMu1KP.momentum().z());
+        B_J_charge1->push_back(mu1CandMC->currentState().particleCharge());
 
-	    B_J_pt2->push_back(Jp2vec.perp());
-	    B_J_px2->push_back(psiMu2KP.momentum().x());
-	    B_J_py2->push_back(psiMu2KP.momentum().y());
-	    B_J_pz2->push_back(psiMu2KP.momentum().z());
-	    B_J_charge2->push_back(mu2CandMC->currentState().particleCharge());
-		  
-	    B_J_chi2->push_back(psi_vFit_vertex_noMC->chiSquared());
-	    B_chi2->push_back(bDecayVertexMC->chiSquared());
-             
-	    //double B_Prob_tmp       = TMath::Prob(bDecayVertexMC->chiSquared(),(int)bDecayVertexMC->degreesOfFreedom());
-	    //double J_Prob_tmp   = TMath::Prob(psi_vFit_vertex_noMC->chiSquared(),(int)psi_vFit_vertex_noMC->degreesOfFreedom());
-	    B_Prob    ->push_back(B_Prob_tmp);
-	    B_J_Prob  ->push_back(J_Prob_tmp);
+        B_J_pt2->push_back(Jp2vec.perp());
+        B_J_px2->push_back(psiMu2KP.momentum().x());
+        B_J_py2->push_back(psiMu2KP.momentum().y());
+        B_J_pz2->push_back(psiMu2KP.momentum().z());
+        B_J_charge2->push_back(mu2CandMC->currentState().particleCharge());
+        
+        B_J_chi2->push_back(psi_vFit_vertex_noMC->chiSquared());
+        B_chi2->push_back(bDecayVertexMC->chiSquared());
+              
+        //double B_Prob_tmp       = TMath::Prob(bDecayVertexMC->chiSquared(),(int)bDecayVertexMC->degreesOfFreedom());
+        //double J_Prob_tmp   = TMath::Prob(psi_vFit_vertex_noMC->chiSquared(),(int)psi_vFit_vertex_noMC->degreesOfFreedom());
+        B_Prob    ->push_back(B_Prob_tmp);
+        B_J_Prob  ->push_back(J_Prob_tmp);
 
-	    B_DecayVtxX ->push_back((*bDecayVertexMC).position().x());    
-	    B_DecayVtxY ->push_back((*bDecayVertexMC).position().y());
-	    B_DecayVtxZ ->push_back((*bDecayVertexMC).position().z());
-	    B_DecayVtxXE ->push_back(bDecayVertexMC->error().cxx());   
-	    B_DecayVtxYE ->push_back(bDecayVertexMC->error().cyy());   
-	    B_DecayVtxZE ->push_back(bDecayVertexMC->error().czz());
-	    B_DecayVtxXYE ->push_back(bDecayVertexMC->error().cyx());
-	    B_DecayVtxXZE ->push_back(bDecayVertexMC->error().czx());
-	    B_DecayVtxYZE ->push_back(bDecayVertexMC->error().czy());
-	  
-*/
-	    mu1soft = iMuon1->isSoftMuon(bestVtx);
-	    mu2soft = iMuon2->isSoftMuon(bestVtx);
-	    mu1tight = iMuon1->isTightMuon(bestVtx);
-	    mu2tight = iMuon2->isTightMuon(bestVtx);
-	    mu1PF = iMuon1->isPFMuon();
-	    mu2PF = iMuon2->isPFMuon();
-	    mu1loose = muon::isLooseMuon(*iMuon1);
-	    mu2loose = muon::isLooseMuon(*iMuon2);
-  	    mumC2 = glbTrackP->normalizedChi2();
-	    mumNHits = glbTrackP->numberOfValidHits();
-	    mumNPHits = glbTrackP->hitPattern().numberOfValidPixelHits();	       
-	    mupC2 = glbTrackM->normalizedChi2();
-	    mupNHits = glbTrackM->numberOfValidHits();
-	    mupNPHits = glbTrackM->hitPattern().numberOfValidPixelHits();
-            mumdxy = glbTrackP->dxy(bestVtx.position());// 
-	    mupdxy = glbTrackM->dxy(bestVtx.position());// 
-	    mumdz = glbTrackP->dz(bestVtx.position());
-	    mupdz = glbTrackM->dz(bestVtx.position());
-	    muon_dca = dca;
+        B_DecayVtxX ->push_back((*bDecayVertexMC).position().x());    
+        B_DecayVtxY ->push_back((*bDecayVertexMC).position().y());
+        B_DecayVtxZ ->push_back((*bDecayVertexMC).position().z());
+        B_DecayVtxXE ->push_back(bDecayVertexMC->error().cxx());   
+        B_DecayVtxYE ->push_back(bDecayVertexMC->error().cyy());   
+        B_DecayVtxZE ->push_back(bDecayVertexMC->error().czz());
+        B_DecayVtxXYE ->push_back(bDecayVertexMC->error().cyx());
+        B_DecayVtxXZE ->push_back(bDecayVertexMC->error().czx());
+        B_DecayVtxYZE ->push_back(bDecayVertexMC->error().czy());
+      
+  */
+        mu1soft = iMuon1->isSoftMuon(bestVtx);
+        mu2soft = iMuon2->isSoftMuon(bestVtx);
+        mu1tight = iMuon1->isTightMuon(bestVtx);
+        mu2tight = iMuon2->isTightMuon(bestVtx);
+        mu1PF = iMuon1->isPFMuon();
+        mu2PF = iMuon2->isPFMuon();
+        mu1loose = muon::isLooseMuon(*iMuon1);
+        mu2loose = muon::isLooseMuon(*iMuon2);
+          mumC2 = glbTrackP->normalizedChi2();
+        mumNHits = glbTrackP->numberOfValidHits();
+        mumNPHits = glbTrackP->hitPattern().numberOfValidPixelHits();	       
+        mupC2 = glbTrackM->normalizedChi2();
+        mupNHits = glbTrackM->numberOfValidHits();
+        mupNPHits = glbTrackM->hitPattern().numberOfValidPixelHits();
+              mumdxy = glbTrackP->dxy(bestVtx.position());// 
+        mupdxy = glbTrackM->dxy(bestVtx.position());// 
+        mumdz = glbTrackP->dz(bestVtx.position());
+        mupdz = glbTrackM->dz(bestVtx.position());
+        muon_dca = dca;
 
- 	    nB++;	       
-	    muonParticles.clear();
-//		   vFitMCParticles.clear();
+        nB++;	       
+        muonParticles.clear();
+        // vFitMCParticles.clear();
+        if (debug_) std::cout << "Before tree_->Fill()   " << nB <<  std::endl;
+        if (nB > 0) tree_->Fill();
 
-	    if (nB > 0) tree_->Fill();
 
-            J_charge = 0;
-            J_mass = 0;    J_px = 0;    J_py = 0;    J_pz = 0;
+        // Initialize the objects
+        J_charge = 0;
+        J_mass = 0;    J_px = 0;    J_py = 0;    J_pz = 0;
 
-            J_pt1 = 0;  J_eta1 = 0.; J_phi1 = 0.; J_px1 = 0;  J_py1 = 0;  J_pz1 = 0; J_charge1 = 0;
-            J_pt2 = 0;  J_eta2 = 0.; J_phi2 = 0.; J_px2 = 0;  J_py2 = 0;  J_pz2 = 0; J_charge2 = 0;
+        J_pt1 = 0;  J_eta1 = 0.; J_phi1 = 0.; J_px1 = 0;  J_py1 = 0;  J_pz1 = 0; J_charge1 = 0;
+        J_pt2 = 0;  J_eta2 = 0.; J_phi2 = 0.; J_px2 = 0;  J_py2 = 0;  J_pz2 = 0; J_charge2 = 0;
 
-            J_chi2 = 0;
-            J_Prob = 0;
+        J_chi2 = 0;
+        J_Prob = 0;
 
-            J_DecayVtxX = 0;     J_DecayVtxY = 0;     J_DecayVtxZ = 0;
-            J_DecayVtxXE = 0;    J_DecayVtxYE = 0;    J_DecayVtxZE = 0;
-            J_DecayVtxXYE = 0;   J_DecayVtxXZE = 0;   J_DecayVtxYZE = 0;
+        J_DecayVtxX = 0;     J_DecayVtxY = 0;     J_DecayVtxZ = 0;
+        J_DecayVtxXE = 0;    J_DecayVtxYE = 0;    J_DecayVtxZE = 0;
+        J_DecayVtxXYE = 0;   J_DecayVtxXZE = 0;   J_DecayVtxYZE = 0;
 
-            nVtx = 0;
-            priVtxX = 0;     priVtxY = 0;     priVtxZ = 0;
-            priVtxXE = 0;    priVtxYE = 0;    priVtxZE = 0; priVtxCL = 0;
-            priVtxXYE = 0;   priVtxXZE = 0;   priVtxYZE = 0;
+        nVtx = 0;
+        priVtxX = 0;     priVtxY = 0;     priVtxZ = 0;
+        priVtxXE = 0;    priVtxYE = 0;    priVtxZE = 0; priVtxCL = 0;
+        priVtxXYE = 0;   priVtxXZE = 0;   priVtxYZE = 0;
 
-            mumC2 = 0;
-            mumNHits = 0; mumNPHits = 0;
-            mupC2 = 0;
-            mupNHits = 0; mupNPHits = 0;
-            mumdxy = 0; mupdxy = 0; mumdz = 0; mupdz = 0; muon_dca = 0;
+        mumC2 = 0;
+        mumNHits = 0; mumNPHits = 0;
+        mupC2 = 0;
+        mupNHits = 0; mupNPHits = 0;
+        mumdxy = 0; mupdxy = 0; mumdz = 0; mupdz = 0; muon_dca = 0;
 
-            mu1soft = 0; mu2soft = 0; mu1tight = 0; mu2tight = 0;
-            mu1PF = 0; mu2PF = 0; mu1loose = 0; mu2loose = 0;
+        mu1soft = 0; mu2soft = 0; mu1tight = 0; mu2tight = 0;
+        mu1PF = 0; mu2PF = 0; mu1loose = 0; mu2loose = 0;
 
-            L10er1p5dR = 0; L10er1p4dR = 0; L14dR = 0; L14p5dR = 0;
-            L10er2p0dEta1p5 = 0; L10er2p0dEta1p6 = 0;
-            L10er1p4dEta1p6 = 0; L13er2p0dR = 0;
-            L14p5ups = 0;
+        L10er1p5dR = 0; L10er1p4dR = 0; L14dR = 0; L14p5dR = 0;
+        L10er2p0dEta1p5 = 0; L10er2p0dEta1p6 = 0;
+        L10er1p4dEta1p6 = 0; L13er2p0dR = 0;
+        L14p5ups = 0;
+          
 
-            L1mu_pt.clear(); L1mu_eta.clear(); L1mu_phi.clear();
-            L1mu_etaAtVtx.clear(); L1mu_phiAtVtx.clear();
-            L1mu_quality.clear(); L1mu_charge.clear();
+        if (debug_) std::cout << "Cleaning vectors 1 --> " << std::endl;
+        L1mu_pt.clear(); L1mu_eta.clear(); L1mu_phi.clear();
+        L1mu_etaAtVtx.clear(); L1mu_phiAtVtx.clear();
+        L1mu_quality.clear(); L1mu_charge.clear();
+        
+        for(std::size_t i = 0; i < HLTPaths_.size(); ++i){
+          hltsVector[i] = 0;
+        }
 
-            HLTLowMassDisplaced = 0; HLTLowMassInclusive = 0;
-            HLTMuMuTrkDisplaced = 0; HLTBsMuMu = 0; HLTUpsilon = 0;
+        for(std::size_t i = 0; i < L1Seeds_.size(); ++i){
+          l1sVector[i] = 0;
+        }
 
-            //   tri_LowMassInclusive = 0; tri_LowMassDisplaced = 0;
-            mu1HLTmatched = 0; mu2HLTmatched = 0;
+        HLTLowMassDisplaced = 0; HLTLowMassInclusive = 0;
+        HLTMuMuTrkDisplaced = 0; HLTBsMuMu = 0; HLTUpsilon = 0;
 
-//	    }//track
+
+        //   tri_LowMassInclusive = 0; tri_LowMassDisplaced = 0;
+        mu1HLTmatched = 0; mu2HLTmatched = 0;
+
+  //	    }//track
 	  }//mu2
-      	}//mu1
+  }//mu1
  
    
    nB = 0; nMu = 0;
@@ -717,14 +756,24 @@ void JPsiKaon::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    L10er1p4dEta1p6 = 0; L13er2p0dR = 0;
    L14p5ups = 0;
 
+   if (debug_) std::cout << "Cleaning vectors 2--> " << std::endl;
    L1mu_pt.clear(); L1mu_eta.clear(); L1mu_phi.clear();
    L1mu_etaAtVtx.clear(); L1mu_phiAtVtx.clear();
    L1mu_quality.clear(); L1mu_charge.clear();
 
+   for(std::size_t i = 0; i < HLTPaths_.size(); ++i){
+     hltsVector[i] = 0;
+   }
+
+   for(std::size_t i = 0; i < L1Seeds_.size(); ++i){
+     l1sVector[i] = 0;
+   }
+
    HLTLowMassDisplaced = 0; HLTLowMassInclusive = 0;
    HLTMuMuTrkDisplaced = 0; HLTBsMuMu = 0; HLTUpsilon = 0;
 
-/*
+
+  /*
    B_charge->clear();
    B_mass->clear();    B_px->clear();    B_py->clear();    B_pz->clear(); 
    B_k_px->clear(); B_k_py->clear(); B_k_pz->clear();  B_k_charge1->clear();
@@ -741,8 +790,8 @@ void JPsiKaon::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    B_DecayVtxX->clear();     B_DecayVtxY->clear();     B_DecayVtxZ->clear();
    B_DecayVtxXE->clear();    B_DecayVtxYE->clear();    B_DecayVtxZE->clear();
    B_DecayVtxXYE->clear();   B_DecayVtxXZE->clear();   B_DecayVtxYZE->clear();
-*/
-/*
+  */
+  /*
    J_charge->clear();
    J_mass->clear();    J_px->clear();    J_py->clear();    J_pz->clear(); 
  
@@ -771,7 +820,8 @@ void JPsiKaon::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
  
    mu1soft->clear(); mu2soft->clear(); mu1tight->clear(); mu2tight->clear();
    mu1PF->clear(); mu2PF->clear(); mu1loose->clear(); mu2loose->clear(); 
-*/ 
+  */ 
+  if (debug_) std::cout << "End Analyze --> " << std::endl;
 }
 
 bool JPsiKaon::IsTheSame(const pat::GenericParticle& tk, const pat::Muon& mu){
@@ -794,7 +844,7 @@ JPsiKaon::beginJob()
 
   tree_->Branch("nB",&nB,"nB/i");
   tree_->Branch("nMu",&nMu,"nMu/i");
-/*
+  /*
   tree_->Branch("B_charge", &B_charge);
   tree_->Branch("B_mass", &B_mass);
   tree_->Branch("B_px", &B_px);
@@ -841,7 +891,7 @@ JPsiKaon::beginJob()
   tree_->Branch("B_DecayVtxXYE",   &B_DecayVtxXYE);
   tree_->Branch("B_DecayVtxXZE",   &B_DecayVtxXZE);
   tree_->Branch("B_DecayVtxYZE",   &B_DecayVtxYZE);
-*/
+  */
 
   tree_->Branch("J_charge", &J_charge);
   tree_->Branch("J_mass", &J_mass);
@@ -931,6 +981,19 @@ JPsiKaon::beginJob()
   tree_->Branch("HLTUpsilon", &HLTUpsilon);
   tree_->Branch("HLTMuMuTrkDisplaced", &HLTMuMuTrkDisplaced);
   tree_->Branch("HLTBsMuMu", &HLTBsMuMu);
+
+  if (debug_) std::cout << "Filling Branches" << std::endl;
+  for(std::size_t i = 0; i < HLTPaths_.size(); ++i){ 
+    tree_->Branch(HLTPaths_[i].c_str(), &hltsVector[i]);
+  }
+  for(std::size_t i = 0; i < L1Seeds_.size(); ++i){ 
+    tree_->Branch(L1Seeds_[i].c_str(), &l1sVector[i]);
+  }
+
+  if (debug_) std::cout << "Branches filled :)" << std::endl;
+
+
+              
 
   tree_->Branch("tri_LowMassInclusive", &tri_LowMassInclusive);
   tree_->Branch("tri_LowMassDisplaced", &tri_LowMassDisplaced);
