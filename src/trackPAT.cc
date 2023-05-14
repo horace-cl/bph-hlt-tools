@@ -15,7 +15,7 @@
 // user include files
 
 #include "FWCore/Framework/interface/Frameworkfwd.h"
-#include "FWCore/Framework/interface/EDAnalyzer.h"
+#include "FWCore/Framework/interface/one/EDAnalyzer.h"
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
 #include "CommonTools/Statistics/interface/ChiSquaredProbability.h"
@@ -79,7 +79,7 @@
 // class decleration
 //
 
-class trackPAT : public edm::EDAnalyzer {
+class trackPAT : public edm::one::EDAnalyzer<> {
 public:
   explicit trackPAT(const edm::ParameterSet&);
   ~trackPAT();

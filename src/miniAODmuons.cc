@@ -17,7 +17,7 @@
 #include "myAnalyzers/bph-hlt-tools/src/miniAODmuons.h"
 
 #include "FWCore/Framework/interface/Frameworkfwd.h"
-#include "FWCore/Framework/interface/EDAnalyzer.h"
+#include "FWCore/Framework/interface/one/EDAnalyzer.h"
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
@@ -124,8 +124,10 @@ void miniAODmuons::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
   //*********************************  
 
   // Kinematic fit
-  edm::ESHandle<TransientTrackBuilder> theB; 
-  iSetup.get<TransientTrackRecord>().get("TransientTrackBuilder",theB); 
+  //edm::ESHandle<TransientTrackBuilder> theB; 
+  //iSetup.get<TransientTrackRecord>().get("TransientTrackBuilder",theB); 
+  edm::ESGetToken<TransientTrackBuilder, TransientTrackRecord> theBToken_; 
+  auto const& theB = iSetup.getData(theBToken_);
 
   edm::Handle< View<pat::PackedCandidate> > thePATTrackHandle;
   iEvent.getByToken(trakCollection_label,thePATTrackHandle);
@@ -183,8 +185,8 @@ void miniAODmuons::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
 	  if(!(glbTrackM->quality(reco::TrackBase::highPurity))) continue;
 	  if(!(glbTrackP->quality(reco::TrackBase::highPurity))) continue;	 
 	  
-	  reco::TransientTrack muon1TT((*theB).build(glbTrackP));
-	  reco::TransientTrack muon2TT((*theB).build(glbTrackM));
+	  reco::TransientTrack muon1TT((theB).build(glbTrackP));
+	  reco::TransientTrack muon2TT((theB).build(glbTrackM));
 
 	 // *****  Trajectory states to calculate DCA for the 2 muons *********************
 	  FreeTrajectoryState mu1State = muon1TT.impactPointTSCP().theState();
