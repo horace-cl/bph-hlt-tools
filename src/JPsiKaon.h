@@ -88,10 +88,12 @@ class JPsiKaon : public edm::one::EDAnalyzer<> {
     void fillPsi(const reco::Candidate& genpsi);
     void fillV0(const reco::Candidate& genv0);
     //int const getMuCat(reco::Muon const& muon) const;
+    float matchedDr(edm::View<pat::Muon>::const_iterator muon, const std::string HLTpath, bool debug_ = false);
     bool IsTheSame(const pat::GenericParticle& tk, const pat::Muon& mu);
     virtual void beginJob() ;
     virtual void analyze(const edm::Event&, const edm::EventSetup&);
-    virtual void endJob() ;
+    virtual void endJob() ; 
+
 
   private:
     void printout(const RefCountedKinematicVertex& myVertex) const;
@@ -157,6 +159,12 @@ class JPsiKaon : public edm::one::EDAnalyzer<> {
     int         tri_Dim25, tri_Dim20, tri_JpsiTk; 
 
     bool        mu1HLTmatched, mu2HLTmatched;
+    
+    bool        mu1TagMatched, mu1ProbeMatched;
+    bool        mu2TagMatched, mu2ProbeMatched;
+
+    float       mu1pt, mu1eta, mu1phi, mu1charge, mu1dRProbe, mu1dRTag;
+    float       mu2pt, mu2eta, mu2phi, mu2charge, mu2dRProbe, mu2dRTag;
 
     bool        mu1soft, mu2soft, mu1tight, mu2tight;  
     bool        mu1PF, mu2PF, mu1loose, mu2loose;  

@@ -32,6 +32,7 @@
 #include "DataFormats/BeamSpot/interface/BeamSpot.h"
 #include "DataFormats/PatCandidates/interface/Muon.h"
 #include "DataFormats/Common/interface/TriggerResults.h"
+#include "DataFormats/Math/interface/deltaR.h"
 
 //For kinematic fit:
 #include "TrackingTools/TransientTrack/interface/TransientTrackBuilder.h"
@@ -118,6 +119,9 @@ JPsiKaon::JPsiKaon(const edm::ParameterSet& iConfig)
  
   mu1HLTmatched(0), mu2HLTmatched(0),
  
+  mu1pt(-1), mu1eta(-1), mu1phi(-1), mu1charge(-1), mu1dRProbe(-1), mu1dRTag(-1),
+  mu2pt(-1), mu2eta(-1), mu2phi(-1), mu2charge(-1), mu2dRProbe(-1), mu2dRTag(-1),
+
   mu1soft(0), mu2soft(0), mu1tight(0), mu2tight(0), 
   mu1PF(0), mu2PF(0), mu1loose(0), mu2loose(0),
  
@@ -175,6 +179,8 @@ JPsiKaon::~JPsiKaon()
 // ------------ method called to for each event  ------------
 void JPsiKaon::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
+  if (debug_) std::cout << "\n\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n"<< std::endl;
+  if (debug_) std::cout << "Begin analyze!!" << std::endl;
   using std::vector;
   using namespace edm;
   using namespace reco;
@@ -270,7 +276,7 @@ void JPsiKaon::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       std::cout<<HLTPaths_[i] << "\t--> " << hltsVector[i] << std::endl; 
   }*/
 
-
+  if (debug_) std::cout << "Len Triggers : " << triggerCollection->size() << std::endl;
   for (pat::TriggerObjectStandAlone trig : *triggerCollection) {
       trig.unpackPathNames(names);
       trig.unpackFilterLabels(iEvent, *triggerBits);
@@ -327,21 +333,144 @@ void JPsiKaon::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
     if((iMuon1->track()).isNull()) continue;
     if(iMuon1->track()->pt()<2.0) continue;
-    
+
+    if (debug_) std::cout << "Muon1 track()->eta() =  " << iMuon1->track()->eta() << std::endl;
+    //if (debug_) std::cout << "Muon1 eta()          =  " << iMuon1->eta() << std::endl;
+    if (debug_) std::cout << "Muon1 track()->phi() =  " << iMuon1->track()->phi() << std::endl;
+    //if (debug_) std::cout << "Muon1 phi()          =  " << iMuon1->phi() << std::endl;
+    if (debug_) std::cout << "Muon1 track()->pt()  =  " << iMuon1->track()->pt() << std::endl;
+    //if (debug_) std::cout << "Muon1 pt()           =  " << iMuon1->pt() << std::endl;
+    if (debug_) std::cout << "\n\n" ;
+
     mu1HLTmatched = false;
+    int i = -1;
     for (pat::TriggerObjectStandAlone obj : *triggerCollection) {
+      i++;
       if( obj.collection().find(hltMuColl) != std::string::npos ) {
-        float etaTrig = obj.eta();
+        /* float etaTrig = obj.eta();
         float phiTrig = obj.phi();
         float etaReco = iMuon1->track()->eta();
         float phiReco = iMuon1->track()->phi();
         float de = etaTrig - etaReco;
         auto dp = std::abs(phiTrig - phiReco);
-        if (dp > float(M_PI)) dp -= float(2*M_PI);
-        //std::cout << "mu1 " << sqrt(de*de + dp*dp) << std::endl;
-        if (sqrt(de*de + dp*dp) < 0.01) mu1HLTmatched = true;
+        if (dp > float(M_PI)) dp -= float(2*M_PI); */
+        //if (debug_) std::cout << " -> mu1 V " << sqrt(de*de + dp*dp) << std::endl;
+        float dr = reco::deltaR(obj.eta(), 
+                                  obj.phi(), 
+                                  iMuon1->track()->eta(), 
+                                  iMuon1->track()->phi());
+
+        if (debug_) std::cout << "\t HLT Object find(hltIterL3MuonCandidates)  " << i << "     dr = " << dr <<std::endl;
+        if (debug_) std::cout << "\t\t pt, eta, phi     = ";
+        if (debug_) std::cout << obj.pt()  << " " ;
+        if (debug_) std::cout << obj.eta() << " " ;
+        if (debug_) std::cout << obj.phi() << "\n" ;
+
+        if(debug_){
+          obj.unpackPathNames(names);
+          std::vector<std::string> paths_matched = obj.pathNames(true, true);
+          std::cout << "\t\t Paths : " ;
+          for (auto tmp_path: paths_matched){
+            std::cout << tmp_path << " ";
+          }
+          std::cout<<"\n";
+          
+          obj.unpackFilterLabels(iEvent, *triggerBits);
+          std::vector<std::string> conditions = obj.conditionNames();
+          std::cout << "\t\t Conditions : " ;
+          for (auto tmp_cond: conditions){
+            std::cout << tmp_cond << " ";
+          }
+          std::cout << "\n";
+          
+          std::vector<std::string> algos_names = obj.algorithmNames(true);
+          std::cout << "\t\t Algos : " ;
+          for (auto tmp_algo: algos_names){
+            std::cout << tmp_algo << " ";
+          }
+          
+          std::cout << "\n\n";
+        }
+
+        //if (debug_) std::cout << " -> mu1 dR " << dr << std::endl;
+        //if (sqrt(de*de + dp*dp) < 0.01) mu1HLTmatched = true;
+        if (dr < 0.01) mu1HLTmatched = true;
       }
     }
+
+
+
+
+
+
+
+    if (debug_) std::cout << "# triggerObjectMatches = " << iMuon1->triggerObjectMatches().size() << std::endl;
+    
+    std::string TagPath = "HLT_DoubleMu4_3_LowMass_v*";
+    std::string ProbePath = "HLT_Mu8_v*";
+    
+    //char TagPath [ ("HLT_Mu8").size() + 1];
+    //strcpy( TagPath, ("HLT_Mu8").c_str() ); 
+
+
+    // Iterate over the triggerObjectMatches and check if any object matched the path we are looking for
+    if(iMuon1->triggerObjectMatches().size()!=0 and false){
+      for(size_t i=0; i<iMuon1->triggerObjectMatches().size();i++){
+        // hasPathName :
+        // // https://cmssdt.cern.ch/lxr/source/DataFormats/PatCandidates/interface/TriggerObjectStandAlone.h#0153
+        // // (const std::string &name, bool pathLastFilterAccepted,bool pathL3FilterAccepted))
+        //if (iMuon1->triggerObjectMatch(i)!=0 && iMuon1->triggerObjectMatch(i)->hasPathName(TagPath,true,true) ){
+          float dr = reco::deltaR(iMuon1->triggerObjectMatch(i)->eta(), 
+                                  iMuon1->triggerObjectMatch(i)->phi(), 
+                                  iMuon1->eta(), 
+                                  iMuon1->phi());
+          
+          if (debug_) std::cout << "\t HLT Matched Object " << i << "     dr = " << dr <<std::endl;
+          if (debug_) std::cout << "\t\t pt, eta, phi     = ";
+          if (debug_) std::cout << iMuon1->triggerObjectMatch(i)->pt()  << " " ;
+          if (debug_) std::cout << iMuon1->triggerObjectMatch(i)->eta() << " " ;
+          if (debug_) std::cout << iMuon1->triggerObjectMatch(i)->phi() << "\n" ;
+
+        //}
+
+
+        std::vector<std::string> paths_matched = iMuon1->triggerObjectMatch(i)->pathNames(true, true);
+        std::cout << "\t\t Paths : " ;
+        for (auto tmp_path: paths_matched){
+          std::cout << tmp_path << " ";
+        }
+        std::cout << "\n";
+
+        std::vector<std::string> algos_names = iMuon1->triggerObjectMatch(i)->algorithmNames(true);
+        std::cout << "\t\t Algos : " ;
+        for (auto tmp_algo: algos_names){
+          std::cout << tmp_algo << " ";
+        }
+        /*std::cout << "\n";
+
+        iMuon1->triggerObjectMatch(i)->unpackFilterLabels(iEvent, *triggerBits);
+        std::vector<std::string> conditions = iMuon1->triggerObjectMatch(i)->conditionNames();
+        std::cout << "\t\t Conditions : " ;
+        for (auto tmp_cond: conditions){
+          std::cout << tmp_cond << " ";
+        } */
+        std::cout << "\n\n";
+
+         
+
+      }
+    }
+    //const pat::Muon& muon1_obj = *iMuon1;
+    float muon1DrTag = matchedDr(iMuon1, TagPath, debug_);
+    //float muon1DrProbe = matchedDr(iMuon1, ProbePath, debug_);
+    
+    //if (debug_) std::cout << "\ndRtag : "<< muon1DrTag << std::endl;
+
+
+
+
+
+
         
     for(View<pat::Muon>::const_iterator iMuon2 = iMuon1+1; iMuon2 != thePATMuonHandle->end(); ++iMuon2)	{
 
@@ -662,6 +791,20 @@ void JPsiKaon::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         B_DecayVtxYZE ->push_back(bDecayVertexMC->error().czy());
       
   */
+        mu1pt     = iMuon1->pt();
+        mu1eta    = iMuon1->eta();
+        mu1phi    = iMuon1->phi();
+        mu1charge = iMuon1->charge();
+        mu1dRProbe= matchedDr(iMuon1, TagPath, false);
+        mu1dRTag  = matchedDr(iMuon1, ProbePath, false);
+
+        mu2pt     = iMuon2->pt();
+        mu2eta    = iMuon2->eta();
+        mu2phi    = iMuon2->phi();
+        mu2charge = iMuon2->charge();
+        mu2dRProbe= matchedDr(iMuon2, TagPath, false);
+        mu2dRTag  = matchedDr(iMuon2, ProbePath, false);
+
         mu1soft = iMuon1->isSoftMuon(bestVtx);
         mu2soft = iMuon2->isSoftMuon(bestVtx);
         mu1tight = iMuon1->isTightMuon(bestVtx);
@@ -670,13 +813,13 @@ void JPsiKaon::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         mu2PF = iMuon2->isPFMuon();
         mu1loose = muon::isLooseMuon(*iMuon1);
         mu2loose = muon::isLooseMuon(*iMuon2);
-          mumC2 = glbTrackP->normalizedChi2();
+        mumC2 = glbTrackP->normalizedChi2();
         mumNHits = glbTrackP->numberOfValidHits();
         mumNPHits = glbTrackP->hitPattern().numberOfValidPixelHits();	       
         mupC2 = glbTrackM->normalizedChi2();
         mupNHits = glbTrackM->numberOfValidHits();
         mupNPHits = glbTrackM->hitPattern().numberOfValidPixelHits();
-              mumdxy = glbTrackP->dxy(bestVtx.position());// 
+        mumdxy = glbTrackP->dxy(bestVtx.position());// 
         mupdxy = glbTrackM->dxy(bestVtx.position());// 
         mumdz = glbTrackP->dz(bestVtx.position());
         mupdz = glbTrackM->dz(bestVtx.position());
@@ -713,6 +856,9 @@ void JPsiKaon::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         mupC2 = 0;
         mupNHits = 0; mupNPHits = 0;
         mumdxy = 0; mupdxy = 0; mumdz = 0; mupdz = 0; muon_dca = 0;
+
+        mu1pt = -1, mu1eta = -1, mu1phi = -1, mu1charge = -1, mu1dRProbe = -1, mu1dRTag = -1;
+        mu2pt = -1, mu2eta = -1, mu2phi = -1, mu2charge = -1, mu2dRProbe = -1, mu2dRTag = -1;
 
         mu1soft = 0; mu2soft = 0; mu1tight = 0; mu2tight = 0;
         mu1PF = 0; mu2PF = 0; mu1loose = 0; mu2loose = 0;
@@ -822,6 +968,68 @@ void JPsiKaon::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    mu1PF->clear(); mu2PF->clear(); mu1loose->clear(); mu2loose->clear(); 
   */ 
   if (debug_) std::cout << "End Analyze --> " << std::endl;
+}
+
+
+
+
+
+// // Checks if a given muon has a match with the HLTpath, evaluates its dR and returns it
+// // If no match is found it returns -1
+// // //The match is done with all `triggerObjectMatches` from the muon and must pass:
+// // // // hasPathName(HLTpath,true,true)
+float JPsiKaon::matchedDr(edm::View<pat::Muon>::const_iterator muon, const std::string HLTpath, bool debug_) {
+
+    if (debug_) std::cout << "Hello from JPsiKaon::matchedDr !\n";
+    // Returned dr
+    float dr=-1;
+    float dr_tmp;
+
+    if (debug_) std::cout << "# triggerObjectMatches = " << muon->triggerObjectMatches().size() << std::endl;
+    //std::string HLTpath = "HLT_Mu8";
+
+    // Iterate over the triggerObjectMatches and check if any object matched the path we are looking for
+    if(muon->triggerObjectMatches().size()!=0){
+      for(size_t i=0; i<muon->triggerObjectMatches().size();i++){
+        // hasPathName :
+        // // https://cmssdt.cern.ch/lxr/source/DataFormats/PatCandidates/interface/TriggerObjectStandAlone.h#0153
+        // // (const std::string &name, bool pathLastFilterAccepted,bool pathL3FilterAccepted))
+        if (muon->triggerObjectMatch(i)!=0 && muon->triggerObjectMatch(i)->hasPathName(HLTpath,true,true) ){
+          dr_tmp = reco::deltaR(muon->triggerObjectMatch(i)->eta(), 
+                                  muon->triggerObjectMatch(i)->phi(), 
+                                  muon->eta(), 
+                                  muon->phi());
+          //Update in case there are multiple matches!
+          if(dr<0 || dr_tmp<dr){
+             if( dr>0 && debug_ ) std::cout << "  x- x- x- x- x- x- Updated dr! " << dr << "  :  "  << dr_tmp << std::endl;
+            dr = dr_tmp;
+          }
+          if (debug_) std::cout << "\t HLT Matched Object " << i << "     dr = " << dr <<std::endl;
+          if (debug_) std::cout << "\t\t pt, eta, phi     = ";
+          if (debug_) std::cout << muon->triggerObjectMatch(i)->pt()  << " " ;
+          if (debug_) std::cout << muon->triggerObjectMatch(i)->eta() << " " ;
+          if (debug_) std::cout << muon->triggerObjectMatch(i)->phi() << "\n" ;
+
+          // pathNames
+          if (debug_){
+            std::vector<std::string> paths_matched = muon->triggerObjectMatch(i)->pathNames(true, true);
+            std::cout << "\t\t Paths : " ;
+            for (auto tmp_path: paths_matched){
+              std::cout << tmp_path << " ";
+            }
+            std::cout << "\n";
+
+            std::vector<std::string> algos_names = muon->triggerObjectMatch(i)->algorithmNames(true);
+            std::cout << "\t\t Algos : " ;
+            for (auto tmp_algo: algos_names){
+              std::cout << tmp_algo << " ";
+            }
+          }
+        }
+
+      }
+    }
+    return dr;
 }
 
 bool JPsiKaon::IsTheSame(const pat::GenericParticle& tk, const pat::Muon& mu){
@@ -1004,6 +1212,20 @@ JPsiKaon::beginJob()
   tree_->Branch("tri_Dim25",&tri_Dim25);
   tree_->Branch("tri_Dim20",&tri_Dim20);
   tree_->Branch("tri_JpsiTk",&tri_JpsiTk);
+
+  tree_->Branch("mu1pt", &mu1pt);
+  tree_->Branch("mu1eta", &mu1eta);
+  tree_->Branch("mu1phi", &mu1phi);
+  tree_->Branch("mu1charge", &mu1charge);
+  tree_->Branch("mu1dRProbe", &mu1dRProbe);
+  tree_->Branch("mu1dRTag", &mu1dRTag);
+
+  tree_->Branch("mu2pt", &mu2pt);
+  tree_->Branch("mu2eta", &mu2eta);
+  tree_->Branch("mu2phi", &mu2phi);
+  tree_->Branch("mu2charge", &mu2charge);
+  tree_->Branch("mu2dRProbe", &mu2dRProbe);
+  tree_->Branch("mu2dRTag", &mu2dRTag);
 
   tree_->Branch("mu1soft",&mu1soft);
   tree_->Branch("mu2soft",&mu2soft);

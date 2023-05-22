@@ -25,6 +25,10 @@ process.source = cms.Source("PoolSource",
 
 #MiniAOD
 '/store/data/Run2023B/ParkingDoubleMuonLowMass0/MINIAOD/PromptReco-v1/000/366/729/00000/27addd1b-2dfd-422e-9ee6-32540a1680c7.root', #run 366729 398 Bunches
+#'/store/data/Run2023B/Muon0/MINIAOD/PromptReco-v1/000/366/729/00000/4a922d34-54d4-48ef-8783-e4365b2705c8.root', #run 366729 398 Bunches Muon Dataset
+#'/store/data/Run2023B/Muon0/MINIAOD/PromptReco-v1/000/366/729/00000/ffe1bcc1-033e-433b-aba9-dfe230dffccd.root',
+#'/store/data/Run2023C/Muon1/MINIAOD/PromptReco-v1/000/367/095/00000/221c19ae-ebd5-4f97-9fb0-3555c4c50f0a.root', #run 366729 398 Bunches Muon Dataset 2023 C
+#'/store/data/Run2023C/Muon1/MINIAOD/PromptReco-v1/000/367/100/00000/676c79df-d267-45e1-ba54-659dbbcca059.root',
 #'/store/data/Run2023B/ParkingDoubleElectronLowMass/MINIAOD/PromptReco-v1/000/366/729/00000/00079e71-2162-4645-932b-60cecdca6c8e.root' #run 366729 398 Bunches DoubleEle
 #'/store/data/Run2022G/ParkingDoubleMuonLowMass7/MINIAOD/PromptReco-v1/000/362/433/00000/57d1fa15-4719-4165-a5c2-ae937f37db14.root',
 #'/store/data/Run2018C/Charmonium/MINIAOD/PromptReco-v2/000/319/756/00000/EEF6CEC1-698B-E811-8081-02163E00AF5F.root',
@@ -35,6 +39,9 @@ process.source = cms.Source("PoolSource",
 #'/store/data/Run2022B/DoubleMuonLowMass/MINIAOD/PromptReco-v1/000/355/558/00000/895a4444-ac75-4ab6-a682-b2580508dc5d.root',       
  )
 )
+
+outputName =  process.source.fileNames.value()[0]
+outputName = '_'.join(outputName.split('/')[3:5])
 
 process.triggerSelection = cms.EDFilter("TriggerResultsFilter",
                                         triggerConditions = cms.vstring('',
@@ -52,7 +59,7 @@ process.load("myAnalyzers.bph-hlt-tools.PsikaonRootupler_cfi")
 process.TFileService = cms.Service("TFileService",
 
        #fileName = cms.string('Rootuple_MuMu_2022G-MiniAOD-DoubleEle.root'),
-       fileName = cms.string('Rootuple_MuMu_2023B-MiniAOD.root'),
+       fileName = cms.string(f'Rootuple_{outputName}.root'),
   
 )
 
