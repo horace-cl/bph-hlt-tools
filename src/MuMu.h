@@ -10,6 +10,7 @@
 //#include "FWCore/Framework/interface/EDAnalyzer.h"
 #include "FWCore/Framework/interface/one/EDAnalyzer.h"
 #include "FWCore/Framework/interface/Event.h"
+#include "FWCore/Framework/interface/Run.h"
 #include "FWCore/ServiceRegistry/interface/Service.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
@@ -105,6 +106,8 @@
 #include "DataFormats/L1Trigger/interface/BXVector.h"
 #include "DataFormats/L1Trigger/interface/L1MuonParticleFwd.h"
 #include "DataFormats/L1Trigger/interface/Muon.h"
+#include "HLTrigger/HLTcore/interface/HLTConfigProvider.h"
+#include "HLTrigger/HLTcore/interface/HLTPrescaleProvider.h"
 //
 // class decleration
 //
@@ -125,12 +128,20 @@ public:
   //int MatchedObjs(TLorentzVector, TVector3, TVector3);
   
 private:
+
+  HLTPrescaleProvider hltPrescale_;
+  //HLTConfigProvider   hltConfig_;
+
+
+  virtual void beginRun(edm::Run const&, edm::EventSetup const&);
   virtual void beginJob() ;
   virtual void analyze(const edm::Event&, const edm::EventSetup&);
   virtual void endJob() ;
   void printout(const RefCountedKinematicVertex& myVertex) const;
   void printout(const RefCountedKinematicParticle& myParticle) const;
   void printout(const RefCountedKinematicTree& myTree) const;
+
+
 
   // ----------member data ---------------------------
   //const edm::ESGetToken<TransientTrackBuilder, TransientTrackRecord> ttrkToken_;

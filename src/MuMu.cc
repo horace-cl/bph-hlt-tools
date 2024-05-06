@@ -22,6 +22,10 @@
 #include "DataFormats/Common/interface/TriggerResults.h"
 #include "FWCore/Common/interface/TriggerNames.h"
 
+
+#include "HLTrigger/HLTcore/interface/HLTConfigProvider.h"
+#include "HLTrigger/HLTcore/interface/HLTPrescaleProvider.h"
+
 //
 // constants, enums and typedefs
 //
@@ -40,6 +44,7 @@
 MuMu::MuMu(const edm::ParameterSet& iConfig)
   :
   //ttrkToken_(esConsumes(edm::ESInputTag("", "TransientTrackBuilder"))),
+  hltPrescale_(iConfig, consumesCollector(), *this),
   ttrkToken_(esConsumes<TransientTrackBuilder, TransientTrackRecord>(edm::ESInputTag("", "TransientTrackBuilder"))),
   muon_Label(consumes<edm::View<pat::Muon>>(iConfig.getParameter<edm::InputTag>("muons"))),
   trakCollection_label(consumes<edm::View<pat::PackedCandidate>>(iConfig.getParameter<edm::InputTag>("Trak"))),
@@ -53,7 +58,7 @@ MuMu::MuMu(const edm::ParameterSet& iConfig)
   algInputTag_(consumes<GlobalAlgBlkBxCollection>(iConfig.getParameter<edm::InputTag>("algInputTag"))),
   l1MuonsToken_(consumes<BXVector<l1t::Muon>>(iConfig.getParameter<edm::InputTag>("l1Muons"))),
   HLTPaths_(iConfig.getParameter<std::vector<std::string>>("HLTPaths")),
-  L1Seeds_(iConfig.getParameter<std::vector<std::string>>("L1Seeds")),  
+  L1Seeds_(iConfig.getParameter<std::vector<std::string>>("L1Seeds")),    
   gtUtil_( new l1t::L1TGlobalUtil( iConfig, consumesCollector(), *this, iConfig.getParameter<edm::InputTag>("algInputTag"), iConfig.getParameter<edm::InputTag>("algInputTag"), l1t::UseEventSetupIn::RunAndEvent  )),
   OnlyBest_(iConfig.getParameter<bool>("OnlyBest")),
   isMC_(iConfig.getParameter<bool>("isMC")),
@@ -64,8 +69,6 @@ MuMu::MuMu(const edm::ParameterSet& iConfig)
   BarebMasscut_(iConfig.getParameter<std::vector<double> >("BarebMasscut")),
   bMasscut_(iConfig.getParameter<std::vector<double> >("bMasscut")),
   debug_(iConfig.getParameter<bool>("debug")),
-
-
   tree_(0), tree_muons(0), tree_gen_muons(0), tree_L1muons(0), tree_L2muons(0), tree_L3muons(0),
 
   mu1_charge(0), mu2_charge(0),
@@ -126,13 +129,35 @@ MuMu::MuMu(const edm::ParameterSet& iConfig)
   lumiblock(0),
   GENmu_pt(0), GENmu_eta(0), GENmu_phi(0),
   GENmu_charge(0), GENmu_status(0), GENmu_mother(0), GENmu_grandmother(0)
-
 {
    //now do what ever initialization is needed
 }
 
 //MuMu::~MuMu(){}
+void MuMu::beginRun(edm::Run const& iRun, edm::EventSetup const& iSetup)
+//--------------------------------------------------------------------------
+{
+    //using namespace std;
+    //using namespace edm;
 
+    bool changed(true);
+    //hltConfig_.init(iRun,iSetup,"HLT",changed);
+    hltPrescale_.init(iRun, iSetup, "HLT", changed);
+    //hltConfig_ = hltPrescale_.hltConfigProvider();
+    
+    if (changed)
+    {
+        std::cout<<"HLTConfig has changed . . . "<<std::endl;
+        
+    }
+    
+}//------------------- beginRun()
+
+void MuMu::fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
+  edm::ParameterSetDescription desc;  
+  desc.add<unsigned int>("stageL1Trigger", 1);
+  descriptions.add("isoTrigDefault", desc);
+}
 
 // ------------ method called to for each event  ------------
 void MuMu::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
@@ -337,6 +362,8 @@ void MuMu::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
   //Unpack trigger info
   edm::Handle<edm::TriggerResults> triggerBits;
+  //hltConfig_.init(iRun,iSetup,processName_,changed);
+
   iEvent.getByToken(triggerResults_Label, triggerBits);
   const edm::TriggerNames &names = iEvent.triggerNames(*triggerBits);
   const pat::TriggerObjectStandAloneCollection unPackedCollection;
@@ -380,7 +407,31 @@ void MuMu::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   // if (debug_) std::cout << "gtTriggerMenuName    = " << gtTriggerMenuName << std::endl;
   // if (debug_) std::cout << "gtTriggerMenuVersion = " << gtTriggerMenuVersion << std::endl;
   // if (debug_) std::cout << "gtTriggerMenuComment = " << gtTriggerMenuComment << std::endl;
-  
+
+    //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  // EXAMPLE: L1 and HLT prescale values via (L1) EventSetup
+  // Current (default) prescale set index - to be taken from L1GtUtil via Event.
+  // Try to get the L1 and HLT prescale values that were actually used 
+  // for this event.
+  // This example needs the conditions stored in the Global Tag,
+  // which is some sort of snapshot of the by-then current detector
+  // conditions.  They need to be extracted from the database
+  // and for that the "Frontier Conditions" lines need to
+  // be added in the python configuration file along with the 
+  // name for the global tag.
+  // This can make the job very slow at the very begining....
+  //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  //const std::pair<int,int> prescalesHLT(hltConfig_.prescaleValue<double>(iSetup,HLTPaths_[0]));
+  //const std::pair<int,int> prescales(hltConfig_.prescaleValues(iEvent,iSetup,HLTPaths_[0]));
+  auto const prescalesHLT = hltPrescale_.prescaleValuesInDetail<double>(iEvent, iSetup, HLTPaths_[0]);
+  std::cout << "analyzeSimplePrescales: path "
+      << HLTPaths_[0] << " [ - ] "
+      << "prescales L1T,HLT: " 
+      << prescalesHLT.first.at(0).first  << " - " 
+      << prescalesHLT.first.at(0).second << "," 
+      << prescalesHLT.second
+      << std::endl;
+  //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
   for (size_t i_l1t = 0; i_l1t < decisionsFinal.size(); i_l1t++){
     string l1tName = (decisionsFinal.at(i_l1t)).first;

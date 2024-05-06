@@ -18,4 +18,5 @@
 <use   name="DataFormats/HepMCCandidate"/>
 <use   name="CondFormats/L1TObjects"/>
 <use   name="L1Trigger/L1TGlobal"/>
+<use   name="HLTrigger/HLTcore"/>
 <flags   EDM_PLUGIN="1"/>

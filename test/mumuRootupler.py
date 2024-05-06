@@ -36,20 +36,41 @@ HLT_Paths=[ "HLT_DoubleMu4_3_LowMass_v",
             "HLT_Mu0_L1DoubleMu_v",
             "HLT_Mu3_PFJet40_v",
             "HLT_Mu15_v",
+            "HLT_DoubleMu2_Jpsi_LowPt_v",
             
-            "HLT_Mu0_Barrel_v2",
+            "HLT_Mu0_Barrel_v",
             "HLT_Mu0_Barrel_L1HP10_v",
             "HLT_Mu0_Barrel_L1HP11_v",
             "HLT_Mu9_Barrel_L1HP10_IP6_v",
             "HLT_Mu10_Barrel_L1HP11_IP6_v",
-            #"HLT_DoubleEle5_eta1p22_mMax6_v",
-            #"HLT_DoubleEle5p5_eta1p22_mMax6_v",
-            #"HLT_DoubleEle6_eta1p22_mMax6_v",
-            #"HLT_DoubleEle6p5_eta1p22_mMax6_v",
-            #"HLT_DoubleEle7_eta1p22_mMax6_v",
-            #"HLT_DoubleEle7p5_eta1p22_mMax6_v",
-            
+            "HLT_Dimuon10_Upsilon_y1p4_v",            
 ]
+
+
+# HLT_Paths=[ "HLT_DoubleMu4_3_LowMass_v",
+#             "HLT_DoubleMu4_3_LowMass_SS_v",
+#             "HLT_DoubleMu4_LowMass_Displaced_v",
+#             "HLT_DoubleMu4_MuMuTrk_Displaced_v",
+#             "HLT_DoubleMu4_3_Bs_v",
+#             "HLT_DoubleMu2_Jpsi_LowPt",
+
+#             #"HLT_Dimuon10_y1p4_v", # This may not be in the menu!
+#             #"HLT_DoubleMu4_3_Jpsi_v",
+#             #"HLT_Mu8_v", 
+#             #"HLT_IsoMu24_v",
+#             #"HLT_IsoMu27_v",
+#             #"HLT_Mu4_L1DoubleMu_v",
+#             #"HLT_Mu0_L1DoubleMu_v",
+#             #"HLT_Mu3_PFJet40_v",
+#             #"HLT_Mu15_v",            
+            
+#             "HLT_Mu0_Barrel_v",
+#             "HLT_Mu0_Barrel_L1HP10_v",
+#             "HLT_Mu0_Barrel_L1HP11_v",
+#             "HLT_Mu9_Barrel_L1HP10_IP6_v",
+#             "HLT_Mu10_Barrel_L1HP11_IP6_v",
+#             "HLT_Dimuon10_Upsilon_y1p4_v8",            
+# ]
 
 
 import FWCore.ParameterSet.Config as cms
@@ -63,7 +84,7 @@ options.register('isMC', False,
     "Run this on real data"
 )
 
-options.register('maxE', -1,
+options.register('maxE', 10,
     VarParsing.multiplicity.singleton,
     VarParsing.varType.int,
     "Maximum number of events"
@@ -150,6 +171,8 @@ process.source = cms.Source("PoolSource",
 #process.load("myAnalyzers.JPsiKsPAT.PsikaonRootupler_cfi")
 #process.rootuple.dimuons = cms.InputTag('slimmedMuons')
 process.rootuple = cms.EDAnalyzer('MuMu',
+                          #stageL1Trigger = 2,
+                          
                           muons = cms.InputTag("slimmedMuons"),
                           Trak = cms.InputTag("packedPFCandidates"),
                           #Trak_lowpt = cms.InputTag("lostTracks"),
@@ -177,6 +200,11 @@ process.rootuple = cms.EDAnalyzer('MuMu',
                           bMasscut          = cms.vdouble(5.0,6.0),
                           debug = cms.bool(options.debug)        
                           )
+
+from Configuration.Eras.Modifier_stage2L1Trigger_cff import stage2L1Trigger
+stage2L1Trigger.toModify(process.rootuple, stageL1Trigger = 2)
+
+
 dataset_name = data_file.split('/')[4][:11]
 file_name = f'Rootuple_DiMu-MiniAOD_{dataset_name}.root'
 if options.isMC:
